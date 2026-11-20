@@ -25,16 +25,25 @@ namespace implementation {
 
 // Supported fingerprint HAL version
 static const uint16_t kVersion = HARDWARE_MODULE_API_VERSION(2, 1);
+char prop_val[PROPERTY_VALUE_MAX];
 
 using RequestStatus = android::hardware::biometrics::fingerprint::V2_1::RequestStatus;
 
 BiometricsFingerprint* BiometricsFingerprint::sInstance = nullptr;
 
 BiometricsFingerprint::BiometricsFingerprint() : mClientCallback(nullptr), mDevice(nullptr) {
-    sInstance = this;  // keep track of the most recent instance
+    sInstance = this;
     mDevice = openHal();
     if (!mDevice) {
         ALOGE("Can't open HAL module");
+        return;
+    }
+
+    char fps_ident[PROPERTY_VALUE_MAX] = {0};
+    property_get("vendor.hw.fps.ident", fps_ident, "");
+    if (strcmp(fps_ident, "goodix") == 0) {
+        ALOGI("Goodix HAL opened successfully; setting vendor.hw.fingerprint.status=ok");
+        property_set("vendor.hw.fingerprint.status", "ok");
     }
 }
 
@@ -199,6 +208,10 @@ Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid,
     if (access(mutableStorePath.c_str(), W_OK)) {
         return RequestStatus::SYS_EINVAL;
     }
+    if (!mDevice || !mDevice->set_active_group) {
+		ALOGE("set_active_group function pointer is NULL or unsupported by vendor blob!");
+		return RequestStatus::SYS_UNKNOWN;
+	}
     return ErrorFilter(mDevice->set_active_group(mDevice, gid, mutableStorePath.c_str()));
 }
 
@@ -209,6 +222,9 @@ Return<RequestStatus> BiometricsFingerprint::authenticate(uint64_t operationId, 
 IBiometricsFingerprint* BiometricsFingerprint::getInstance() {
     if (!sInstance) {
         sInstance = new BiometricsFingerprint();
+    }
+    if (sInstance->mDevice == nullptr) {
+        return nullptr;
     }
     return sInstance;
 }
