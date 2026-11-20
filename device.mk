@@ -56,6 +56,9 @@ PRODUCT_PACKAGES += \
     init.vendor.st21nfc.rc \
     init.oem.fingerprint2.sh
 
+# lindroid
+$(call inherit-product, vendor/lindroid/lindroid.mk)
+
 # NFC
 PRODUCT_PACKAGES += \
     android.hardware.nfc-service.st \
